@@ -60,11 +60,11 @@ TBC.
 - unused tiebreak columns appear to the right of used tiebreaks
 - unused tiebreak columns may have "NONE" heading
 - unlabelled unused tiebreak columns contain only "0" as data
-- spaces in names are encoded by underscore which appear nowhere else
+- spaces in names are encoded by underscores which appear nowhere else
 - names are split into exactly two columns: lastname firstname
-- an absent part is encoded by a single underscore (consider player "Weed")
+- an absent name part is encoded by a single underscore (consider player "Weed")
 - rows are in descending order of final placement of player in the tournament
-- tied may be indicated by only the first of such rows being numbered explicitly
+- ties may be indicated by only the first of such rows being numbered explicitly
 - row number is used as opponent number in results columns
 - data rows may have a suffix "|"+number indicating EGD PIN
 
@@ -72,7 +72,7 @@ TBC.
 
 - some columns names are normalised
 - columns are reordered to place rounds after all others
-- if short-long club mapping is known, codes are expanded; else unconverted code is placed inside square brackets
+- if short-long club mapping is provided, codes are expanded with unmatched codes placed inside square brackets
 - "No Club" is replaced by "-"
 - if there are tied placements, an additional column is prefixed
 - EGD PIN info is elided
@@ -88,7 +88,7 @@ Jonathan H N Chin <code@jhnc.org>
 
 # COPYRIGHT AND LICENSE
 
-    Copyright © 2006-2022 by Jonathan H N Chin <code@jhnc.org>.
+    Copyright © 2025 by Jonathan H N Chin <code@jhnc.org>.
 
     This program is free software; you may redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
