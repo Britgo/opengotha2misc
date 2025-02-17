@@ -269,15 +269,15 @@ TBC.
 
 =item * unlabelled unused tiebreak columns contain only "0" as data
 
-=item * spaces in names are encoded by underscore which appear nowhere else
+=item * spaces in names are encoded by underscores which appear nowhere else
 
 =item * names are split into exactly two columns: lastname firstname
 
-=item * an absent part is encoded by a single underscore (consider player "Weed")
+=item * an absent name part is encoded by a single underscore (consider player "Weed")
 
 =item * rows are in descending order of final placement of player in the tournament
 
-=item * tied may be indicated by only the first of such rows being numbered explicitly
+=item * ties may be indicated by only the first of such rows being numbered explicitly
 
 =item * row number is used as opponent number in results columns
 
@@ -294,7 +294,7 @@ TBC.
 
 =item * columns are reordered to place rounds after all others
 
-=item * if short-long club mapping is known, codes are expanded; else unconverted code is placed inside square brackets
+=item * if short-long club mapping is provided, codes are expanded with unmatched codes placed inside square brackets
 
 =item * "No Club" is replaced by "-"
 
@@ -324,7 +324,7 @@ Jonathan H N Chin <code@jhnc.org>
 
 =head1 COPYRIGHT AND LICENSE
 
- Copyright © 2006-2022 by Jonathan H N Chin <code@jhnc.org>.
+ Copyright © 2025 by Jonathan H N Chin <code@jhnc.org>.
 
  This program is free software; you may redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
