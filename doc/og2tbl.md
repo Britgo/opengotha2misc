@@ -44,6 +44,14 @@ og2tbl \[option ...\] \[--\] FILE
 
     Mappings supplied supplement or override the default mappings.
 
+- **-H**, **--html**
+
+    After modifying the data, output result as an HTML table.
+
+- **-J**, **--json**
+
+    After modifying the data, pipe result to _column_ to produce a JSON object.
+
 # DESCRIPTION
 
 TBC.
