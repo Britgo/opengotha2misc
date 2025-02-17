@@ -39,8 +39,8 @@ my (
 );
 GetOptions(
 	'c|clubmap=s'		=> \$clubmap,
-	'e|elide-column=s'	=> \@elide,
-	'r|rename-header=s'	=> \%norm,
+	'e|elide-columns=s'	=> \@elide,
+	'r|rename-headers=s'	=> \%norm,
 	'H|html'		=> sub { die "Not yet implemented: -H|--html\n\n"; },
 	'J|json'		=> sub { die "Not yet implemented: -J|--json\n\n"; },
 	'h|help'		=> sub { pod2usage(-verbose => 1) },
