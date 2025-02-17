@@ -1,0 +1,336 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use v5.10;
+use Pod::Usage;
+use Getopt::Long qw(:config no_ignore_case require_order);
+
+# default header normalisation map
+my %norm = (
+	 "CLU" => "Club",
+	  "CO" => "Country",
+	  "Co" => "Country",
+	"NAME" => "Name",
+	  "Pl" => "No",
+	"POSN" => "No",
+	  "GR" => "Rank",
+	  "Rk" => "Rank",
+	 "WIN" => "Wins",
+);
+
+my (
+	$hasclub,
+	$hasjoint,
+	$nhead,
+	$No,
+	$prevNo,
+	%code2club,
+	@delcols,
+	%name2col,
+	@head, @body, @data,
+	@F,
+);
+
+my (
+	$clubmap,
+	@elide, %elide,
+	$tabulate,
+);
+GetOptions(
+	'c|clubmap=s'		=> \$clubmap,
+	'e|elide-column=s'	=> \@elide,
+	'r|rename-header=s'	=> \%norm,
+	'H|html'		=> sub { die "Not yet implemented: -H|--html\n\n"; },
+	'J|json'		=> sub { die "Not yet implemented: -J|--json\n\n"; },
+	'h|help'		=> sub { pod2usage(-verbose => 1) },
+	  'man'			=> sub { pod2usage(-verbose => 2) },
+) or pod2usage(-verbose => 0);
+
+if (!@ARGV && -t STDIN) {
+	warn "Cowardly refusing to read from terminal.\n\n";
+	pod2usage(-verbose => 0);
+}
+
+# load club code mapping
+if ($clubmap) {
+	open my $fh, "<", $clubmap or die "open($clubmap): $!";
+	while (<$fh>) {
+		s/\s+$//g;
+		my ($k,$v) = split " ", $_, 2;
+		$v = "-" if $v eq "No Club";
+		$v =~ s/\s+/_/g;
+		$code2club{$k} = $v;
+	}
+	close $fh;
+}
+
+# columns to throw away
+%elide = map { ( $norm{$_} // $_ ) => 1 } split /,/, join ",", @elide;
+
+while (<<>>) {
+
+	# massage the header line
+	if (/^;\s*(Pl|POSN)/) {
+
+		# strip comment marker prefix
+		s/^;\s*//;
+
+		# split mangled headers
+		s/SOSSOSOS/SOS SOSOS/;
+
+		# insert a column for joint placings
+		@head = "Posn";
+		$name2col{"Posn"} = 0;
+
+		@F = split;
+		while (my ($idx,$colname) = each @F) {
+			# count from 1 not 0
+			++$idx;
+
+			# elide unused tiebreak columns
+			if (exists $elide{$colname} || $colname eq "NONE") {
+				# +1 accounts for 2 name data fields
+				push @delcols, 1+$idx;
+				next;
+			}
+
+			$colname = $norm{$colname} // $colname;
+			$name2col{$colname} = $idx;
+			push @head, $colname;
+		}
+		$hasclub = defined $name2col{"Club"};
+		$nhead = @head;
+		next;
+	}
+
+	# massage the data lines
+	if (/^[^;].*?\S/) {
+		++$No;
+
+		# strip any trailing pin
+		s/\s*[|]\s*\d+\s*$//;
+
+		@data = split;
+
+		# prepend possibly-joint positions
+		if ($data[0] =~ /[^\d]/) {
+			++$hasjoint;
+			unshift @data, $No;
+		} else {
+			$prevNo = $No;
+		}
+		unshift @data, $prevNo;
+
+		# combine "lastname firstname" into single field
+		my $lname = $name2col{"Name"};
+		my $fname = 1+$lname;
+		my $name = "$data[$fname]_$data[$lname]";
+		$name =~ s/__+/_/;
+		$name =~ s/^_|_$//;
+		$data[$lname] = $name;
+		delete $data[$fname];
+
+		delete $data[$_] for @delcols;
+		@data = grep { defined } @data;
+
+		if ($clubmap && $hasclub) {
+			my $col = $name2col{"Club"};
+			$data[$col] = $code2club{ $data[$col] } // "[$data[$col]]";
+		}
+
+		# remove headerless non-round columns
+		# XXX: need more sample files to check this algorithm is reliable
+		for (my $i = $nhead; $i<@data; ++$i) {
+			delete $data[$i] if $data[$i] eq "0";
+		}
+		@data = grep { defined } @data;
+
+		push @body, [ @data ];
+	}
+
+}
+
+# add any missing round headers
+my $round = 0;
+push @head, ++$round while $nhead++<@data;
+
+my (@h1, @h2);
+
+# reorder fields so rounds always come last
+while (my ($col,$name) = each @head) {
+	next if $elide{$name};
+
+	if ($name =~ /^\d+/) {
+		push @h2, $col;
+	} else {
+		push @h1, $col;
+	}
+}
+
+# elide Posn column if same as No column or explicitly elided
+shift @h1 if !$hasjoint || $elide{"Posn"};
+
+open(STDOUT, "| column -t") or die "exec: $!";
+say "@head[@h1,@h2]";
+say "@{$_}[@h1,@h2]" for @body;
+
+close STDOUT;
+
+__DATA__
+
+=encoding UTF-8
+
+=head1 NAME
+
+og2tbl - convert OpenGotha results file to html or json
+
+=head1 SYNOPSIS
+
+og2tbl [option ...] [--] FILE
+
+   Options:
+      -c, --clubmap FILE
+      -e, --elide-column NAME[,NAME ...]
+      -r, --rename-header OLD=NEW
+
+      -H, --html
+      -J, --json
+
+      -h, --help
+          --man
+
+
+
+=head1 OPTIONS
+
+=over 8
+
+=item B<-->
+
+Terminates option processing; anything after this is the filename
+to be processed, not an option, even if it looks like an option.
+
+=item B<-c>, B<--clubmap>=I<FILE>
+
+Provide mappings from short club code to full name.
+
+=item B<-e>, B<--elide-column>=I<NAME>
+
+Omit columns from the output.
+
+Either the name in the input file or the normalised name may be used.
+
+A comma-separated list of names may supplied or the option may be given multiple times.
+
+=item B<-r>, B<--rename-header>=I<OLD>=I<NEW>
+
+Rename (normalise) column header name.
+
+Option may be given multiple times.
+
+Mappings supplied supplement or override the default mappings.
+
+=back
+
+
+=head1 DESCRIPTION
+
+TBC.
+
+
+=head1 ASSUMPTIONS
+
+=over
+
+=item * only one set of results per file
+
+=item * columns do not change partway through
+
+=item * round columns are ordered ascending from left to right
+
+=item * a comment giving all or a subset of names of the columns precedes the data rows
+
+=item * if a subset, the additional columns in the data are unused tiebreaks followed by the round results
+
+=item * sample data indicates some column names get merged (e.g. SOSSOSOS means SOS followed by SOSOS)
+
+=item * tiebreak columns are ordered left to right by precedence
+
+=item * unused tiebreak columns appear to the right of used tiebreaks
+
+=item * unused tiebreak columns may have "NONE" heading
+
+=item * unlabelled unused tiebreak columns contain only "0" as data
+
+=item * spaces in names are encoded by underscore which appear nowhere else
+
+=item * names are split into exactly two columns: lastname firstname
+
+=item * an absent part is encoded by a single underscore (consider player "Weed")
+
+=item * rows are in descending order of final placement of player in the tournament
+
+=item * tied may be indicated by only the first of such rows being numbered explicitly
+
+=item * row number is used as opponent number in results columns
+
+=item * data rows may have a suffix "|"+number indicating EGD PIN
+
+=back
+
+
+=head1 CHOICES
+
+=over
+
+=item * some columns names are normalised
+
+=item * columns are reordered to place rounds after all others
+
+=item * if short-long club mapping is known, codes are expanded; else unconverted code is placed inside square brackets
+
+=item * "No Club" is replaced by "-"
+
+=item * if there are tied placements, an additional column is prefixed
+
+=item * EGD PIN info is elided
+
+=back
+
+
+=head1 SEE ALSO
+
+=over
+
+=item http://vannier.info/jeux/gotournaments/opengotha.htm
+
+=item https://www.europeangodatabase.eu/EGD/
+
+=back
+
+
+=head1 AUTHOR
+
+Jonathan H N Chin <code@jhnc.org>
+
+
+
+=head1 COPYRIGHT AND LICENSE
+
+ Copyright © 2006-2022 by Jonathan H N Chin <code@jhnc.org>.
+
+ This program is free software; you may redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 3 of the License, or
+ (at your option) any later version.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this program; if not, write to the Free Software
+ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
