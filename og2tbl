@@ -35,14 +35,15 @@ my (
 my (
 	$clubmap,
 	@elide, %elide,
-	$tabulate,
+	$mode,
 );
+$mode = 'T';
 GetOptions(
 	'c|clubmap=s'		=> \$clubmap,
 	'e|elide-columns=s'	=> \@elide,
 	'r|rename-headers=s'	=> \%norm,
 	'H|html'		=> sub { die "Not yet implemented: -H|--html\n\n"; },
-	'J|json'		=> sub { die "Not yet implemented: -J|--json\n\n"; },
+	'J|json'		=> sub { $mode = 'J'; },
 	'h|help'		=> sub { pod2usage(-verbose => 1) },
 	  'man'			=> sub { pod2usage(-verbose => 2) },
 ) or pod2usage(-verbose => 0);
@@ -171,8 +172,13 @@ while (my ($col,$name) = each @head) {
 # elide Posn column if same as No column or explicitly elided
 shift @h1 if !$hasjoint || $elide{"Posn"};
 
-open(STDOUT, "| column -t") or die "exec: $!";
-say "@head[@h1,@h2]";
+if ($mode eq 'T') {
+	open(STDOUT, "| column -t") or die "exec: $!";
+	say "@head[@h1,@h2]";
+} elsif ($mode eq 'J') {
+	my $n = "@head[@h1,@h2]" =~ s/\s+/,/gr;
+	open(STDOUT, "| column -t -N \Q$n\E -J") or die "exec: $!";
+}
 say "@{$_}[@h1,@h2]" for @body;
 
 close STDOUT;
