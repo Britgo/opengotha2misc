@@ -42,7 +42,7 @@ GetOptions(
 	'c|clubmap=s'		=> \$clubmap,
 	'e|elide-columns=s'	=> \@elide,
 	'r|rename-headers=s'	=> \%norm,
-	'H|html'		=> sub { die "Not yet implemented: -H|--html\n\n"; },
+	'H|html'		=> sub { $mode = 'H'; },
 	'J|json'		=> sub { $mode = 'J'; },
 	'h|help'		=> sub { pod2usage(-verbose => 1) },
 	  'man'			=> sub { pod2usage(-verbose => 2) },
@@ -172,14 +172,23 @@ while (my ($col,$name) = each @head) {
 # elide Posn column if same as No column or explicitly elided
 shift @h1 if !$hasjoint || $elide{"Posn"};
 
-if ($mode eq 'T') {
+if ($mode eq 'H') {
+	my @ha = ('', ' class=ha');
+	say '<html><body><style> .ha { color:red; } </style><table>';
+	say '<tr>', ( map {                                 y/_/ /; "<th>$_</th>";    } @head[@h1,@h2] ), '</tr>';
+	say '<tr>', ( map { my $ha = $ha[ m{/[wb][1-9]$} ]; y/_/ /; "<td$ha>$_</td>"; } @{$_}[@h1,@h2] ), '</tr>' for @body;
+	say '</table></body></html>';
+}
+elsif ($mode eq 'T') {
 	open(STDOUT, "| column -t") or die "exec: $!";
 	say "@head[@h1,@h2]";
-} elsif ($mode eq 'J') {
+	say "@{$_}[@h1,@h2]" for @body;
+}
+elsif ($mode eq 'J') {
 	my $n = "@head[@h1,@h2]" =~ s/\s+/,/gr;
 	open(STDOUT, "| column -t -N \Q$n\E -J") or die "exec: $!";
+	say "@{$_}[@h1,@h2]" for @body;
 }
-say "@{$_}[@h1,@h2]" for @body;
 
 close STDOUT;
 
@@ -236,6 +245,14 @@ Rename (normalise) column header name.
 Option may be given multiple times.
 
 Mappings supplied supplement or override the default mappings.
+
+=item B<-H>, B<--html>
+
+After modifying the data, output result as an HTML table.
+
+=item B<-J>, B<--json>
+
+After modifying the data, pipe result to I<column> to produce a JSON object.
 
 =back
 
