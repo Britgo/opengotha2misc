@@ -34,6 +34,7 @@ my (
 
 my (
 	$clubmap,
+	@tiebreaks,
 	@elide, %elide,
 	$mode,
 );
@@ -42,6 +43,7 @@ GetOptions(
 	'c|clubmap=s'		=> \$clubmap,
 	'e|elide-columns=s'	=> \@elide,
 	'r|rename-headers=s'	=> \%norm,
+	't|tiebreaks=s'		=> \@tiebreaks,
 	'H|html'		=> sub { $mode = 'H'; },
 	'J|json'		=> sub { $mode = 'J'; },
 	'h|help'		=> sub { pod2usage(-verbose => 1) },
@@ -118,7 +120,8 @@ while (<<>>) {
 		if ($data[0] =~ /[^\d]/) {
 			++$hasjoint;
 			unshift @data, $No;
-		} else {
+		}
+		else {
 			$prevNo = $No;
 		}
 		unshift @data, $prevNo;
@@ -156,21 +159,59 @@ while (<<>>) {
 my $round = 0;
 push @head, ++$round while $nhead++<@data;
 
-my (@h1, @h2);
+if (@tiebreaks) {
+	my @tiecols =
+		@name2col{
+			map { $norm{$_} // $_ } split /,/, join ",", @tiebreaks
+		};
+
+	# sort rows by tiebreaks descending
+	@body = sort {
+		my $n;
+		for (@tiecols) {
+			last if $n = $b->[$_] <=> $a->[$_];
+		}
+		$n;
+	} @body;
+
+	# joint place if all tiebreaks match
+	my ($prev, $cur, $posn) = "";
+	for (@body) {
+
+		$cur = "@{$_}[@tiecols]}";
+		if ($cur ne $prev) {
+			 $posn = $_->[1];
+		}
+		else {
+			 $hasjoint = 1;
+		}
+		$_->[0] = $posn;
+		$prev = $cur;
+	}
+
+	# re-sort rows by Posn,No
+	@body = sort {
+		my $n;
+		for (0,1) {
+			last if $n = $a->[$_] <=> $b->[$_];
+		}
+		$n;
+	} @body;
+}
 
 # reorder fields so rounds always come last
+my (@h1, @h2);
 while (my ($col,$name) = each @head) {
 	next if $elide{$name};
+	next if !$col && !$hasjoint; # Posn is always first column
 
 	if ($name =~ /^\d+/) {
 		push @h2, $col;
-	} else {
+	}
+	else {
 		push @h1, $col;
 	}
 }
-
-# elide Posn column if same as No column or explicitly elided
-shift @h1 if !$hasjoint || $elide{"Posn"};
 
 if ($mode eq 'H') {
 	my @ha = ('', ' class=ha');
@@ -208,6 +249,7 @@ og2tbl [option ...] [--] FILE
       -c, --clubmap FILE
       -e, --elide-column NAME[,NAME ...]
       -r, --rename-header OLD=NEW
+      -t, --tiebreak NAME[,NAME ...]
 
       -H, --html
       -J, --json
@@ -236,7 +278,7 @@ Omit columns from the output.
 
 Either the name in the input file or the normalised name may be used.
 
-A comma-separated list of names may supplied or the option may be given multiple times.
+A comma-separated list of column names may supplied or the option may be given multiple times.
 
 =item B<-r>, B<--rename-header>=I<OLD>=I<NEW>
 
@@ -245,6 +287,12 @@ Rename (normalise) column header name.
 Option may be given multiple times.
 
 Mappings supplied supplement or override the default mappings.
+
+=item B<-t>, B<--tiebreak>=I<COL>
+
+Calculate placings and reorder based on tiebreak columns.
+
+A comma-separated list of column names may supplied or the option may be given multiple times.
 
 =item B<-H>, B<--html>
 
