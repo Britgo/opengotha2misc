@@ -10,6 +10,7 @@ og2tbl \[option ...\] \[--\] FILE
        -c, --clubmap FILE
        -e, --elide-column NAME[,NAME ...]
        -r, --rename-header OLD=NEW
+       -t, --tiebreak NAME[,NAME ...]
 
        -H, --html
        -J, --json
@@ -34,7 +35,7 @@ og2tbl \[option ...\] \[--\] FILE
 
     Either the name in the input file or the normalised name may be used.
 
-    A comma-separated list of names may supplied or the option may be given multiple times.
+    A comma-separated list of column names may supplied or the option may be given multiple times.
 
 - **-r**, **--rename-header**=_OLD_=_NEW_
 
@@ -43,6 +44,12 @@ og2tbl \[option ...\] \[--\] FILE
     Option may be given multiple times.
 
     Mappings supplied supplement or override the default mappings.
+
+- **-t**, **--tiebreak**=_COL_
+
+    Calculate placings and reorder based on tiebreak columns.
+
+    A comma-separated list of column names may supplied or the option may be given multiple times.
 
 - **-H**, **--html**
 
