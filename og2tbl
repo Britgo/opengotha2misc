@@ -20,7 +20,7 @@ my %norm = (
 );
 
 my (
-	$hasclub,
+	$clubcol,
 	$hasjoint,
 	$nhead,
 	$No,
@@ -102,7 +102,7 @@ while (<<>>) {
 			$name2col{$colname} = $idx;
 			push @head, $colname;
 		}
-		$hasclub = defined $name2col{"Club"};
+		$clubcol = $name2col{"Club"};
 		$nhead = @head;
 		next;
 	}
@@ -138,9 +138,9 @@ while (<<>>) {
 		delete $data[$_] for @delcols;
 		@data = grep { defined } @data;
 
-		if ($clubmap && $hasclub) {
-			my $col = $name2col{"Club"};
-			$data[$col] = $code2club{ $data[$col] } // "[$data[$col]]";
+		if ($clubmap && $clubcol) {
+			my $code = $data[$clubcol];
+			$data[$clubcol] = $code2club{$code} // "[$code]";
 		}
 
 		# remove headerless non-round columns
