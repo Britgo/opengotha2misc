@@ -90,7 +90,7 @@ TBC.
 - if short-long club mapping is provided, codes are expanded with unmatched codes placed inside square brackets
 - "No Club" is replaced by "-"
 - if there are tied placements, an additional column is prefixed
-- EGD PIN info is elided
+- with HTML, name is linked to EGD PIN if known; otherwise PIN is elided
 
 # SEE ALSO
 

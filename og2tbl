@@ -28,6 +28,7 @@ my (
 	%code2club,
 	@delcols,
 	%name2col,
+	%name2pin,
 	@head, @body, @data,
 	@F,
 );
@@ -111,8 +112,8 @@ while (<<>>) {
 	if (/^[^;].*?\S/) {
 		++$No;
 
-		# strip any trailing pin
-		s/\s*[|]\s*\d+\s*$//;
+		# strip and save any trailing pin
+		($_, my $pin) = /^(.*?)\s*(?:[|]\s*(\d+)\s*)?$/;
 
 		@data = split;
 
@@ -134,6 +135,7 @@ while (<<>>) {
 		$name =~ s/^_|_$//;
 		$data[$lname] = $name;
 		delete $data[$fname];
+		$name2pin{$name} = $pin if $pin;
 
 		delete $data[$_] for @delcols;
 		@data = grep { defined } @data;
@@ -215,6 +217,15 @@ while (my ($col,$name) = each @head) {
 
 if ($mode eq 'H') {
 	my @ha = ('', ' class=ha');
+
+	# wrap pin url if known
+	my $url = 'https://www.europeangodatabase.eu/EGD/Player%5FCard.php?&key=';
+	my $nc = $name2col{"Name"};
+	for (@body) {
+		my $pin = $name2pin{ $_->[$nc] };
+		$_->[$nc] = qq(<a href="$url$pin">$_->[$nc]</a>) if $pin;
+	}
+
 	say '<html><body><style> .ha { color:red; } </style><table>';
 	say '<tr>', ( map {                                 y/_/ /; "<th>$_</th>";    } @head[@h1,@h2] ), '</tr>';
 	say '<tr>', ( map { my $ha = $ha[ m{/[wb][1-9]$} ]; y/_/ /; "<td$ha>$_</td>"; } @{$_}[@h1,@h2] ), '</tr>' for @body;
@@ -365,7 +376,7 @@ TBC.
 
 =item * if there are tied placements, an additional column is prefixed
 
-=item * EGD PIN info is elided
+=item * with HTML, name is linked to EGD PIN if known; otherwise PIN is elided
 
 =back
 
