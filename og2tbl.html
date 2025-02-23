@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body {
+      font-family: sans;
+      font-size: 16px;
+      color: black;
+      background: #f0f0f0;
+      padding-bottom: 2em;
+    }
+    h1 { font-size: 150%; }
+    h2 { font-size: 100%; font-weight: normal; }
+    #input, #clubmap, #headermap, #preview, #log {
+      display: inline-block;
+      max-width: 90vw;
+      overflow: auto;
+      border: 1px dotted #333;
+      padding: 1em;
+      resize: both;
+    }
+    #input, #clubmap, #headermap, #log {
+      white-space: pre;
+      font-family: monospace;
+      font-size: 75%;
+    }
+    #input, #clubmap, #headermap {
+      background: #f3fff3;
+    }
+    #clubmap {
+      height: 25em;
+    }
+    fieldset {
+      display: table;
+      border: none;
+    }
+    input[type=checkbox] {
+      padding-left: 0;
+      margin-left: 0;
+    }
+    label + fieldset {
+      opacity: 0.33;
+    }
+    label:has(input[type=file]:valid),
+    :checked + label {
+      font-weight: bold;
+    }
+    :checked + label + fieldset {
+      opacity: 1;
+    }
+    dd { margin-left: 0; }
+  </style>
+  <style>
+    /* css for rendered table */
+    #preview {
+      table, td {
+        border: 1px solid black;
+        border-collapse: collapse;
+      }
+      th { padding-right: 1ex; }
+      td.ha { color: red; }
+      tr:hover { background: yellow; }
+    }
+  </style>
+  <style>
+    /* cf. https://codepen.io/fjwhittle/embed/rbKwRa */
+    .tabslayout {
+      display: grid;
+      padding: 0;
+      overflow: auto hidden;
+      border: none;
+      grid-template-columns: repeat(auto-fit, minmax(18ex, 1fr));
+      > input[type="radio"] {
+        overflow: hidden;
+        opacity: 0;
+        position: absolute;
+      }
+      > label {
+        grid-row: 2;
+        margin-top: 1ex;
+        border: 1px solid #a0a0a0;
+        background: #f7f7f7;
+        text-align: center;
+        &~ label {
+          border-left-width: 0px;
+        }
+        border-top-left-radius: 1ex;
+        border-top-right-radius: 1ex;
+      }
+      > input[type="radio"]:checked + label {
+        margin-top: 0;
+        border-bottom-style: none;
+        background: white;
+        outline-offset: -5px;
+      }
+      > input[type="radio"]:checked + label > h2 {
+        font-weight: bold;
+      }
+      > .tab-content {
+        order: 1;
+        overflow: hidden;
+        grid-row: 4;
+        grid-column: 1 / -1;
+        position: sticky;
+        left: 0;
+        border: 1px solid #a0a0a0;
+        border-top-style: none;
+        background: white;
+        padding: 1em;
+        
+        &~ .tab-content {
+          break-before: unset;
+        }
+      }
+      > input[type="radio"]:checked ~ .tab-content {
+        z-index: 1;
+      }
+      > input[type="radio"]:checked ~ .tab-content ~ .tab-content {
+        z-index: 0;
+      }
+      &::after {
+        grid-row: 3;
+        grid-column: 1 / -1;
+        content: "";
+        display: block;
+        border-top: 1px solid #a0a0a0;
+        margin-top: -1px;
+        z-index: -1;
+      }
+    }
+  </style>
+  <!-- https://github.com/andreww1011/row-merge -->
+  <script src="js/jquery-3.2.1.slim.js"></script>
+  <script src="js/row-merge-bundle.min.js"></script>
+</head>
+<body>
+
+<h1>convert OpenGotha/GoDraw file to HTML table</h1>
+
+<fieldset>
+  <label>.h9/.web file to convert: <input id=inputFile type=file required /></label>
+</fieldset>
+
+<fieldset>
+  <input id=doMapClubs type=checkbox />
+  <label>map club codes to full names?</label>
+  <fieldset>
+    <input id=useCustomClubs type=checkbox />
+    <label>use custom club mapping file?</label>
+    <fieldset>
+      <label>club mapping file: <input id=clubmapFile type=file required /></label>
+    </fieldset>
+  </fieldset>
+</fieldset>
+
+<fieldset>
+  <input id=doTiebreak type=checkbox disabled />
+  <label>attempt to calculate tiebreaks? (not yet implemented)</label>
+  <fieldset>
+    <input id=tiebreakColumns type=text size=32 placeholder="comma-separated list" />
+  </fieldset>
+</fieldset>
+
+<fieldset>
+  <input id=doElideColumns type=checkbox checked />
+  <label>elide some columns?</label>
+  <fieldset>
+    <input id=elidedColumns type=text size=32 placeholder="comma-separated list" value="NONE" />
+  </fieldset>
+</fieldset>
+
+<fieldset>
+  <dl>
+    <dt>Notes:<dd>
+    <ul>
+      <li>"<code>SOSSOSOS</code>" and "<code>SDCSODOS</code>" are automatically detected as two separate headers</li>
+      <li>remove unnamed columns by adding a name to the file/data and to the elide list</li>
+      <li>markup for yellow row highlighting is not included with download / copy&amp;paste</li>
+    </ul>
+  </dl>
+</fieldset>
+
+<p></p>
+
+<fieldset class=tabslayout>
+
+  <input type=radio name="tabgroup" id="tabgroup--input" checked />
+  <label for="tabgroup--input"><h2>data to convert (editable)</h2></label>
+  <div class="tab-content">
+    <div id=input contenteditable=true autocomplete=off autocorrect=off autocapitalize=off spellcheck=false>load data to convert</div>
+  </div>
+
+  <input type=radio name="tabgroup" id="tabgroup--clubmap" />
+  <label for="tabgroup--clubmap"><h2>club mapping (editable)</h2></label>
+  <div class="tab-content">
+    <div id=clubmap contenteditable=true autocomplete=off autocorrect=off autocapitalize=off spellcheck=false>CODE	CLUBNAME
+Abrd	Aberdeen
+Abgl	Abergele
+Abyt	Aberystwyth
+Abdn	Abingdon
+Accr	Accrington
+Aldt	Aldershot
+AlxP	Alexandra Park
+Altn	Alton
+Amer	Amersham School
+Arun	Arundel
+Ashy	Ashby
+Astn	Aston
+Ayby	Aylesbury
+Bang	Bangor
+Bmth	Barmouth
+Bath	Bath
+Becm	Beckenham
+Bdfd	Bedford
+Belf	Belfast
+Beve	Beverley
+Bily	Billericay
+Bmhm	Birmingham
+BloS	Bloxham School
+Bodm	Bodmin
+Bolt	Bolton
+Bord	Borders
+Bour	Bournemouth
+Brck	Bracknell
+Brfd	Bradford
+Brtn	Brighton
+Bris	Bristol
+Brom	Bromley
+BrmS	Bromsgrove School
+Bung	Bungay
+Cmbl	Camberwell
+Camb	Cambridge
+CamC	Cambridge CGo
+Camc	Cambridge CGo
+CamU	Cambridge Uni
+Cant	Canterbury
+Card	Cardiff
+Cedr	Cedarwood
+CLon	Central London
+CHuS	Cheadle Hulme Sch
+Chel	Cheltenham
+Ches	Chester
+Chor	Chorley
+Cole	Coleraine
+ColB	Colwyn Bay
+Conw	Conwy
+Cumb	Cumbria
+Derb	Derby
+Devn	Devon
+Dcot	Didcot
+Dund	Dundee
+Dfln	Dunfermline
+Durm	Durham
+EHam	EastHampstead
+Easb	Eastbourne
+Edin	Edinburgh
+Elgn	Elgin
+Efld	Enfield
+Epsm	Epsom
+Essx	Essex
+EsxU	Essex Uni
+Extr	Exeter
+Farn	Farnborough
+FHPr	Fern Hill Primary
+Fife	Fife
+FinP	Finham Park
+Flee	Fleet
+Folk	Folkestone
+Gill	Gillingham
+Gla	Glasgow
+Glas	Glasgow
+Glro	Glenrothes
+Greg	Gregson
+Grim	Grimsby
+Guil	Guildford
+HBri	HP-Bristol
+Hams	Hampstead
+Hanw	Hansworth
+Harp	Harpenden
+HarA	Harpenden Academy
+Hast	Hastings
+HHth	Haywards Heath
+HHem	Hemel Hempstead
+HWyc	High Wycombe
+HKng	Hong Kong
+Hudd	Huddersfield
+Hull	Hull
+Ilfd	Ilford
+IClg	Imperial College
+Impn	Impington
+Ipsw	Ipswich
+IMan	Isle Of Man
+JaGH	James G High
+JaGP	James G Primary
+Jurb	Jurby
+KGS	KGS
+Keel	Keele
+Kinl	Kinglassie
+KCJr	Kings College Jnr
+Kirk	Kirkcaldy
+LAE	LAE Academy
+LSE	LSE
+Lanc	Lancaster
+LRGS	Lancaster Royal Sc
+Lang	Langley
+Leam	Leamington
+Lees	Leeds
+Leic	Leicester
+LeiP	Leighton Park
+Ltch	Letchworth
+Leyt	Leytonstone
+Lcln	Lincoln
+Lpol	Liverpool
+Llan	Llanthony
+Lndn	London
+LonC	London City
+LGC	London Go Centre
+LGCr	London Go Centre
+Lobo	Loughborough
+Lyth	Lytham St Annes
+Mach	Machynlleth
+Maid	Maidenhead
+Manc	Manchester
+MGrS	Manchester Gram
+ManU	Manchester Uni
+MCor	Mid Cornwall
+Midb	Middlesborough
+MKes	Milton Keynes
+MilS	Milton School
+Mhed	Minehead
+Monm	Monmouth
+NMal	New Malden
+Newc	Newcastle
+Nmkt	Newmarket
+Nine	Ninestiles
+NipC	Nippon Club
+????	No Club
+NoCb	No Club
+xxxx	No Club
+NLon	North London
+NWLo	North West London
+Nhtn	Northampton
+NWPr	Northwood Primary
+NwPr	Northwood Primary
+Nwch	Norwich
+Nott	Nottingham
+NhmU	Nottingham Uni
+Orpn	Orpington
+Oxfd	Oxford
+OxfC	Oxford City
+OxfU	Oxford University
+Pand	Pandanet
+Penz	Penzance
+PerS	Perse School
+Pert	Perth
+Plym	Plymouth
+Port	Portsmouth
+Pozn	Poznam
+Pres	Preston
+Purb	Purbrook
+Putn	Putney
+QMUL	Queen Mary Uni
+RadS	Radley School
+Read	Reading
+ReaS	Reading School
+RedS	Rednock School
+Runc	Runcorn
+Salf	Salford
+Sand	Sandbach
+Slnd	Sandilands
+Scar	Scarborough
+Shfd	Sheffield
+ShCS	Sheffield Chin Sch
+ShfU	Sheffield Uni
+Shrb	Sherborne
+Shre	Shrewsbury
+Shro	Shropshire
+SSpr	Silver Springs
+Skye	Skye
+Slfd	Sleaford
+Solh	Solihull
+SCam	South Cambridge
+SCot	South Cotswold
+SLon	South London
+SWoS	South Wolds School
+SWfd	South Woodford
+Sham	Southampton
+StAg	St Agnes
+StAl	St Albans
+StAn	St Andrews
+StVS	St Olaves School
+Sfrd	Stafford
+Stai	Staines
+Stev	Stevenage
+Stok	Stockport
+Stow	Stowe
+Sury	Surrey
+Swan	Swansea
+Swin	Swindon
+Taun	Taunton
+Tec	Technion
+Tech	Technion
+Tees	Teesside
+ToSc	Tonbridge School
+Tosc	Tonbridge School
+TWel	Tunbridge Wells
+Twik	Twickenham
+UCL	UCL
+U3A	Uni Third Age
+Wals	Walsall
+Wans	Wanstead
+WarU	Warwick University
+Watf	Watford
+Wltn	Wellington
+WCor	West Cornwall
+WLon	West London
+WSur	West Surrey
+WSus	West Sussex
+WWal	West Wales
+WFSc	William Farr Sch
+Winc	Winchester
+Wood	Woodley
+Worc	Worcester
+Yeov	Yeovil
+York	York
+</div>
+  </div>
+
+  <input type=radio name="tabgroup" id="tabgroup--headermap" />
+  <label for="tabgroup--headermap"><h2>header mapping (editable)</h2></label>
+  <div class="tab-content">
+    <div id=headermap contenteditable=true autocomplete=off autocorrect=off autocapitalize=off spellcheck=false>CLU	Club
+CLUB	Club
+Clb	Club
+COUNTRY	Country
+CO	Country
+Co	Country
+Ctry	Country
+NAME	Name
+NO	No
+Pl	No
+GRADE	Rank
+GR	Rank
+Rk	Rank
+WIN	Wins
+R1	1
+R2	2
+R3	3
+R4	4
+R5	5
+R6	6
+R7	7
+R8	8
+R9	9
+R10	10
+R11	11
+R12	12
+</div>
+  </div>
+
+  <input type=radio name="tabgroup" id="tabgroup--preview" />
+  <label for="tabgroup--preview"><h2>rendered table</h2></label>
+  <div class="tab-content">
+    <p>
+      <button id=tryPreview>convert / refresh</button>
+      &nbsp;&nbsp;&nbsp;&nbsp;
+      <button id=toggle>toggle row merging</button>
+      &nbsp;&nbsp;&nbsp;&nbsp;
+      <button id=tryCopy>copy to clipboard</button>
+      <button id=trySave>download</button>
+    </p>
+    <div id=preview>rendered view of table will load here</div>
+  </div>
+
+  <input type=radio name="tabgroup" id="tabgroup--log" />
+  <label for="tabgroup--log"><h2>messages</h2></label>
+  <div class="tab-content">
+    <p>
+      <button id=doClear>clear</button>
+    </p>
+    <div id=log>errors and warnings will load here</div>
+  </div>
+
+</fieldset>
+
+<script>
+
+    let haspreview = false;
+
+    let emptylog = 1;
+    let logappend = (s) => {
+        emptylog ? document.getElementById('log').innerHTML  = s + '\n'
+                 : document.getElementById('log').innerHTML += s + '\n'
+                 ;
+        emptylog = 0;
+    };
+
+    let loaddiv = (id,tab,h) => {
+        return (u) => {
+            let r = new FileReader();
+            r.onload =
+                (e) => {
+                    let t = document.getElementById(id);
+                    t.innerHTML = e.target.result
+                    t.style.width = '';
+                    t.style.width = t.scrollWidth + 'px';
+                    t.style.height = h;
+                };
+            r.readAsText(u.target.files[0]);
+            document.getElementById(tab).checked = true;
+            haspreview = false;
+        }
+    };
+    [
+        [ 'inputFile',   'input',   'tabgroup--input',   '' ],
+        [ 'clubmapFile', 'clubmap', 'tabgroup--clubmap', '25em' ],
+    ].forEach((e) => {
+        let [file,div,tab,height] = e;
+        document.getElementById(file).addEventListener('change',loaddiv(div,tab,height), false);
+    });
+
+    document.getElementById('tryCopy').addEventListener('click', () => {
+        if (!haspreview) {
+            alert("invalid render");
+            return;
+        }
+        let s = document.getElementById('preview').innerHTML;
+        navigator.clipboard.writeText(s);
+    });
+
+    document.getElementById('trySave').addEventListener('click', () => {
+        if (!haspreview) {
+            alert("invalid render");
+            return;
+        }
+        let f = document.getElementById('inputFile').value.replace(/^(?:.*[\\/])?(.+?)([.][^.]+)?$/, '$1.html');
+        let s = document.getElementById('preview').innerHTML;
+        let b = new Blob(['<html>\n',s,'</html>\n'], {type:'application/octet-stream'});
+
+        let a = document.createElement('a');
+        a.download = f ? f : 'noname.html';
+        a.href = URL.createObjectURL(b);
+        a.dispatchEvent(new MouseEvent('click'));
+    });
+
+    document.getElementById('doClear').addEventListener('click', () => {
+        document.getElementById('log').innerHTML = "errors and warnings will load here";
+        emptylog = 1;
+    });
+
+    document.getElementById('tryPreview').addEventListener('click', () => {
+        haspreview = 0;
+
+        let norm = new Map();
+        let club_s2l = new Map();
+        let head2col = new Map();
+        let namecol;
+        let head = [];
+        let body = [];
+        let nbody = 0;
+        let nbodycols = 0;
+        let roundcols = [];
+        let nrounds;
+
+        let foundhead = false;
+        let ish9 = false;
+        let isweb = false;
+
+        let doMapClubs = document.getElementById('doMapClubs').checked;
+        let doTiebreak = document.getElementById('doTiebreak').checked;
+        let doElideColumns = document.getElementById('doElideColumns').checked;
+
+        let elidedColumnNames = [];
+        if (doElideColumns) {
+            elidedColumnNames = document.getElementById('elidedColumns').value.replace(/^\s+|\s+$/,'').split(/[,\s]+/);
+            logappend('DEBUG: elide = ' + elidedColumnNames);
+        }
+
+        let splitcols = (row) =>
+            ish9  ? row.replace(/^\s+|[\s\r]+$/gm,'').split(/\s+/) :
+            isweb ? row.replace(/^[\s\r]+$/gm,'').split(/\t/) :
+            [];
+
+        let countwins = (cols) =>
+            ish9  ? cols.filter( (s) => /^\d+[+]([\/][bw]\d+)?/ .test(s) ).length :
+            isweb ? cols.filter( (s) => /^(\(\d+\))?\d+[+]/     .test(s) ).length :
+            0;
+
+        let getroundcols = (r) => 
+                r.flatMap((c,i) => /^((\(\d+\))?(\d+[=+-]|[.]{2,})|0=|0[=?+-]\d+|\d+[=+-](\/[wb]\d+)?)$/.test(c) ? i : []);
+
+        let parserow = (row,lineindex) => {
+            let cols = splitcols(row.replace(/\s*[|]\s*\d+[\s\r]*$/,''));
+
+            if (nbody === 0) {
+                nbodycols = cols.length;
+                if (ish9) --nbodycols; // allow for name field merging
+                logappend('DEBUG: nbodycols = ' + nbodycols);
+            }
+
+            // fixup elided posn column
+            // cols.length should be nbodycols+1 because of subtraction above
+            if (ish9 && cols.length == nbodycols) {
+                cols.unshift( body[nbody-1][0] );
+            } else if (isweb && /^\s*$/.test(cols[0])) {
+                cols[0] = body[nbody-1][0];
+            }
+
+            // merge firstname+lastname
+            if (ish9) {
+                cols[namecol] = ( cols[namecol+1] + ' ' + cols[namecol] ).replace(/_/g, ' ');
+                cols.splice(namecol+1,1);
+            }
+
+            // map club names?
+            if (doMapClubs) {
+                let clubcol = head2col.get('Club');
+                cols[clubcol] = club_s2l.get(cols[clubcol]) ?? '[' + cols[clubcol] + ']';
+            }
+
+            if (nbody === 0) {
+                roundcols = getroundcols(cols);
+                nrounds = roundcols.length;
+                logappend('DEBUG: roundcos = ' + roundcols);
+                logappend('DEBUG: nrounds = ' + nrounds);
+
+                // override round column names
+                roundcols.forEach((c,i) => head[c] = i+1);
+                for (let i = 0; i<nbodycols; ++i) {
+                    head[i] = head[i] ?? '???';
+                }
+                logappend('DEBUG: new head (' + head.length + '): ' + head);
+            }
+
+            // tidy up no-komi games
+            if (isweb) {
+                roundcols.forEach((i) => cols[i] = cols[i].replace('(0)',''));
+            }
+
+            body[nbody++] = cols;
+        };
+
+        [
+            [ 'clubmap', club_s2l   ],
+            [ 'headermap', norm ]
+        ].forEach((e) => {
+            let [id,a2b] = e;
+            document.getElementById(id).innerText.split('\n').forEach((r) => {
+                let kv = r.match(/^\s*(\S+)\s+(\S(?:.*\S)?)/);
+                if (kv) {
+                    if (a2b.get(kv[1])) {
+                        logappend('ERROR: duplicate ' + id + ' mapping (ignored): ' + kv[1] + " -> " + kv[2]);
+                    } else {
+                        a2b.set(kv[1], kv[2]);
+                    }
+                } else {
+                    if (/\S/.test(r)) logappend('ERROR: bad ' + id + ' entry: (' + r + ')');
+                }
+            });
+        });
+
+        document.getElementById('input').innerText.split('\n').forEach((row,lineindex) => {
+            if ( /^;?\s*$/.test(row) ) {
+                logappend('DEBUG: skipping blank line: ' + lineindex);
+                return;
+            }
+            if (!foundhead) {
+                if (ish9) {
+                    if ( /;\s*(Pl|POSN)/.test(row) ) {
+                        logappend('INFO: found h9 header: ' + lineindex);
+                        head = splitcols(row.replace(/^;\s*/,'')
+                             .replace(/(SOS|SDC)(SODOS|SOSOS)/,'$1 $2'))
+                             .map( (h) => norm.get(h) ?? h )
+                             ;
+                        head.forEach((v,i) => head2col.set(v, i));
+                        foundhead = true;
+                    }
+                } else if (isweb) {
+                    if ( /^POSN\tNO\t/.test(row) ) {
+                        logappend('INFO: found web header: ' + lineindex);
+                        head = splitcols(row.replace(/SOSSOSOS/,'SOS SOSOS'))
+                             .map( (h) => norm.get(h) ?? h );
+                        head.forEach((v,i) => head2col.set(v, i));
+                        foundhead = true;
+                    }
+                } else if ( row.startsWith(';') ) {
+                    logappend('INFO: looks like .h9');
+                    ish9 = true;
+                } else if ( /^WEB\tRANK LIST\t/.test(row) ) {
+                    logappend('INFO: looks like .web');
+                    isweb = true;
+                } else {
+                    logappend('WARNING: cannot detect type');
+                }
+
+                if (foundhead) {
+                    // renaming POSN column depends on whether No column is present
+                    let posncol = head2col.get('POSN');
+                    if (posncol != null) {
+                        head[posncol] = head2col.get('No') ? 'Posn' : 'No';
+                    }
+                    namecol = head2col.get("Name");
+                    logappend('DEBUG: orig head (' + head.length + '): ' + head);
+                }
+
+                return;
+            }
+            parserow(row,lineindex);
+        });
+
+        // remove elided columns
+        if (doElideColumns) {
+            let elidedColumns = elidedColumnNames.map((n) => head2col.get(norm.get(n) ?? n));
+            logappend('DEBUG: elidedcolumns: ' + elidedColumns);
+            elidedColumns.forEach((c) => {
+                delete(head[c]);
+                body.forEach((r) => delete(r[c]));
+            });
+        }
+
+        // XXX: input is not sanitised - dodgy input will give dodgy output
+        document.getElementById('preview').innerHTML =
+            '<table>\n' +
+            '<thead>\n<tr><th>' + head.filter(Boolean).join('</th><th>') + '</th></tr>\n</thead>\n' +
+            '<tbody>\n<tr>' + body.map( (r) => '<td>' + r.filter(Boolean).join('</td><td>') + '</td>' ).join('</tr>\n<tr>') + '</tr>\n</tbody>\n' +
+            '</table>';
+
+        // highlight no-komi or handicap games
+        document.querySelectorAll('#preview td').forEach((e) => {
+            if (e.innerText.match(/^\([1-9]\d*\)[1-9]\d*[+-]|[wb][1-9]\d*$/)) {
+                e.classList.add('ha');
+            }
+        });
+
+        $(function () {
+            var toggle = 0;
+            var table = $('#preview table').rowMerge({ excludedColumns:roundcols });
+            $('#toggle').click((e) => { (toggle=!toggle) ? table.unmerge() : table.merge(); });
+            console.log("row merging applied");
+        });
+
+        haspreview = 1;
+    });
+
+</script>
+
+</body>
+</html>
