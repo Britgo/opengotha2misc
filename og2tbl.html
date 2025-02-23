@@ -491,8 +491,8 @@ R12	12
 
     let emptylog = 1;
     let logappend = (s) => {
-        emptylog ? document.getElementById('log').innerHTML  = s + '\n'
-                 : document.getElementById('log').innerHTML += s + '\n'
+        emptylog ? document.getElementById("log").innerHTML  = s + "\n"
+                 : document.getElementById("log").innerHTML += s + "\n"
                  ;
         emptylog = 0;
     };
@@ -504,8 +504,8 @@ R12	12
                 (e) => {
                     let t = document.getElementById(id);
                     t.innerHTML = e.target.result
-                    t.style.width = '';
-                    t.style.width = t.scrollWidth + 'px';
+                    t.style.width = "";
+                    t.style.width = t.scrollWidth + "px";
                     t.style.height = h;
                 };
             r.readAsText(u.target.files[0]);
@@ -514,43 +514,43 @@ R12	12
         }
     };
     [
-        [ 'inputFile',   'input',   'tabgroup--input',   '' ],
-        [ 'clubmapFile', 'clubmap', 'tabgroup--clubmap', '25em' ],
+        [ "inputFile",   "input",   "tabgroup--input",   "" ],
+        [ "clubmapFile", "clubmap", "tabgroup--clubmap", "25em" ],
     ].forEach((e) => {
         let [file,div,tab,height] = e;
-        document.getElementById(file).addEventListener('change',loaddiv(div,tab,height), false);
+        document.getElementById(file).addEventListener("change",loaddiv(div,tab,height), false);
     });
 
-    document.getElementById('tryCopy').addEventListener('click', () => {
+    document.getElementById("tryCopy").addEventListener("click", () => {
         if (!haspreview) {
             alert("invalid render");
             return;
         }
-        let s = document.getElementById('preview').innerHTML;
+        let s = document.getElementById("preview").innerHTML;
         navigator.clipboard.writeText(s);
     });
 
-    document.getElementById('trySave').addEventListener('click', () => {
+    document.getElementById("trySave").addEventListener("click", () => {
         if (!haspreview) {
             alert("invalid render");
             return;
         }
-        let f = document.getElementById('inputFile').value.replace(/^(?:.*[\\/])?(.+?)([.][^.]+)?$/, '$1.html');
-        let s = document.getElementById('preview').innerHTML;
-        let b = new Blob(['<html>\n',s,'</html>\n'], {type:'application/octet-stream'});
+        let f = document.getElementById("inputFile").value.replace(/^(?:.*[\\/])?(.+?)([.][^.]+)?$/, "$1.html");
+        let s = document.getElementById("preview").innerHTML;
+        let b = new Blob(['<html>\n',s,'</html>\n'], {type:"application/octet-stream"});
 
-        let a = document.createElement('a');
-        a.download = f ? f : 'noname.html';
+        let a = document.createElement("a");
+        a.download = f ?? "noname.html";
         a.href = URL.createObjectURL(b);
-        a.dispatchEvent(new MouseEvent('click'));
+        a.dispatchEvent(new MouseEvent("click"));
     });
 
-    document.getElementById('doClear').addEventListener('click', () => {
-        document.getElementById('log').innerHTML = "errors and warnings will load here";
+    document.getElementById("doClear").addEventListener("click", () => {
+        document.getElementById("log").innerHTML = "errors and warnings will load here";
         emptylog = 1;
     });
 
-    document.getElementById('tryPreview').addEventListener('click', () => {
+    document.getElementById("tryPreview").addEventListener("click", () => {
         haspreview = 0;
 
         let norm = new Map();
@@ -568,19 +568,19 @@ R12	12
         let ish9 = false;
         let isweb = false;
 
-        let doMapClubs = document.getElementById('doMapClubs').checked;
-        let doTiebreak = document.getElementById('doTiebreak').checked;
-        let doElideColumns = document.getElementById('doElideColumns').checked;
+        let doMapClubs = document.getElementById("doMapClubs").checked;
+        let doTiebreak = document.getElementById("doTiebreak").checked;
+        let doElideColumns = document.getElementById("doElideColumns").checked;
 
         let elidedColumnNames = [];
         if (doElideColumns) {
-            elidedColumnNames = document.getElementById('elidedColumns').value.replace(/^\s+|\s+$/,'').split(/[,\s]+/);
-            logappend('DEBUG: elide = ' + elidedColumnNames);
+            elidedColumnNames = document.getElementById("elidedColumns").value.replace(/^\s+|\s+$/,"").split(/[,\s]+/);
+            logappend(`DEBUG: elide = ${elidedColumnNames}`);
         }
 
         let splitcols = (row) =>
-            ish9  ? row.replace(/^\s+|[\s\r]+$/gm,'').split(/\s+/) :
-            isweb ? row.replace(/^[\s\r]+$/gm,'').split(/\t/) :
+            ish9  ? row.replace(/^\s+|[\s\r]+$/gm,"").split(/\s+/) :
+            isweb ? row.replace(/^[\s\r]+$/gm,"").split(/\t/) :
             [];
 
         let countwins = (cols) =>
@@ -592,12 +592,12 @@ R12	12
                 r.flatMap((c,i) => /^((\(\d+\))?(\d+[=+-]|[.]{2,})|0=|0[=?+-]\d+|\d+[=+-](\/[wb]\d+)?)$/.test(c) ? i : []);
 
         let parserow = (row,lineindex) => {
-            let cols = splitcols(row.replace(/\s*[|]\s*\d+[\s\r]*$/,''));
+            let cols = splitcols(row.replace(/\s*[|]\s*\d+[\s\r]*$/,""));
 
             if (nbody === 0) {
                 nbodycols = cols.length;
                 if (ish9) --nbodycols; // allow for name field merging
-                logappend('DEBUG: nbodycols = ' + nbodycols);
+                logappend(`DEBUG: nbodycols = ${nbodycols}`);
             }
 
             // fixup elided posn column
@@ -610,68 +610,68 @@ R12	12
 
             // merge firstname+lastname
             if (ish9) {
-                cols[namecol] = ( cols[namecol+1] + ' ' + cols[namecol] ).replace(/_/g, ' ');
+                cols[namecol] = `${cols[namecol+1]} ${cols[namecol]}`.replace(/_/g," ");
                 cols.splice(namecol+1,1);
             }
 
             // map club names?
             if (doMapClubs) {
-                let clubcol = head2col.get('Club');
-                cols[clubcol] = club_s2l.get(cols[clubcol]) ?? '[' + cols[clubcol] + ']';
+                let clubcol = head2col.get("Club");
+                cols[clubcol] = club_s2l.get(cols[clubcol]) ?? `[${cols[clubcol]}]`;
             }
 
             if (nbody === 0) {
                 roundcols = getroundcols(cols);
                 nrounds = roundcols.length;
-                logappend('DEBUG: roundcos = ' + roundcols);
-                logappend('DEBUG: nrounds = ' + nrounds);
+                logappend(`DEBUG: roundcos = ${roundcols}`);
+                logappend(`DEBUG: nrounds = ${nrounds}`);
 
                 // override round column names
                 roundcols.forEach((c,i) => head[c] = i+1);
                 for (let i = 0; i<nbodycols; ++i) {
-                    head[i] = head[i] ?? '???';
+                    head[i] = head[i] ?? "???";
                 }
-                logappend('DEBUG: new head (' + head.length + '): ' + head);
+                logappend(`DEBUG: new head (${head.length}): ${head}`);
             }
 
             // tidy up no-komi games
             if (isweb) {
-                roundcols.forEach((i) => cols[i] = cols[i].replace('(0)',''));
+                roundcols.forEach((i) => cols[i] = cols[i].replace("(0)",""));
             }
 
             body[nbody++] = cols;
         };
 
         [
-            [ 'clubmap', club_s2l   ],
-            [ 'headermap', norm ]
+            [ "clubmap",   club_s2l   ],
+            [ "headermap", norm ]
         ].forEach((e) => {
             let [id,a2b] = e;
-            document.getElementById(id).innerText.split('\n').forEach((r) => {
+            document.getElementById(id).innerText.split("\n").forEach((r) => {
                 let kv = r.match(/^\s*(\S+)\s+(\S(?:.*\S)?)/);
                 if (kv) {
                     if (a2b.get(kv[1])) {
-                        logappend('ERROR: duplicate ' + id + ' mapping (ignored): ' + kv[1] + " -> " + kv[2]);
+                        logappend(`ERROR: duplicate ${id} mapping (ignored): ${kv[1]} -> ${kv[2]}`);
                     } else {
                         a2b.set(kv[1], kv[2]);
                     }
                 } else {
-                    if (/\S/.test(r)) logappend('ERROR: bad ' + id + ' entry: (' + r + ')');
+                    if (/\S/.test(r)) logappend(`ERROR: bad ${id} entry: (${r})`);
                 }
             });
         });
 
-        document.getElementById('input').innerText.split('\n').forEach((row,lineindex) => {
+        document.getElementById("input").innerText.split("\n").forEach((row,lineindex) => {
             if ( /^;?\s*$/.test(row) ) {
-                logappend('DEBUG: skipping blank line: ' + lineindex);
+                logappend(`DEBUG: skipping blank line: ${lineindex}`);
                 return;
             }
             if (!foundhead) {
                 if (ish9) {
                     if ( /;\s*(Pl|POSN)/.test(row) ) {
-                        logappend('INFO: found h9 header: ' + lineindex);
-                        head = splitcols(row.replace(/^;\s*/,'')
-                             .replace(/(SOS|SDC)(SODOS|SOSOS)/,'$1 $2'))
+                        logappend(`INFO: found h9 header: ${lineindex}`);
+                        head = splitcols(row.replace(/^;\s*/,"")
+                             .replace(/(SOS|SDC)(SODOS|SOSOS)/,"$1 $2"))
                              .map( (h) => norm.get(h) ?? h )
                              ;
                         head.forEach((v,i) => head2col.set(v, i));
@@ -679,30 +679,30 @@ R12	12
                     }
                 } else if (isweb) {
                     if ( /^POSN\tNO\t/.test(row) ) {
-                        logappend('INFO: found web header: ' + lineindex);
-                        head = splitcols(row.replace(/SOSSOSOS/,'SOS SOSOS'))
+                        logappend(`INFO: found web header: ${lineindex}`);
+                        head = splitcols(row.replace(/SOSSOSOS/,"SOS SOSOS"))
                              .map( (h) => norm.get(h) ?? h );
                         head.forEach((v,i) => head2col.set(v, i));
                         foundhead = true;
                     }
-                } else if ( row.startsWith(';') ) {
-                    logappend('INFO: looks like .h9');
+                } else if ( row.startsWith(";") ) {
+                    logappend("INFO: looks like .h9");
                     ish9 = true;
                 } else if ( /^WEB\tRANK LIST\t/.test(row) ) {
-                    logappend('INFO: looks like .web');
+                    logappend("INFO: looks like .web");
                     isweb = true;
                 } else {
-                    logappend('WARNING: cannot detect type');
+                    logappend("WARNING: cannot detect type");
                 }
 
                 if (foundhead) {
                     // renaming POSN column depends on whether No column is present
-                    let posncol = head2col.get('POSN');
+                    let posncol = head2col.get("POSN");
                     if (posncol != null) {
-                        head[posncol] = head2col.get('No') ? 'Posn' : 'No';
+                        head[posncol] = head2col.get("No") ? "Posn" : "No";
                     }
                     namecol = head2col.get("Name");
-                    logappend('DEBUG: orig head (' + head.length + '): ' + head);
+                    logappend(`DEBUG: orig head (${head.length}): ${head}`);
                 }
 
                 return;
@@ -713,7 +713,7 @@ R12	12
         // remove elided columns
         if (doElideColumns) {
             let elidedColumns = elidedColumnNames.map((n) => head2col.get(norm.get(n) ?? n));
-            logappend('DEBUG: elidedcolumns: ' + elidedColumns);
+            logappend(`DEBUG: elidedcolumns: ${elidedColumns}`);
             elidedColumns.forEach((c) => {
                 delete(head[c]);
                 body.forEach((r) => delete(r[c]));
@@ -721,7 +721,7 @@ R12	12
         }
 
         // XXX: input is not sanitised - dodgy input will give dodgy output
-        document.getElementById('preview').innerHTML =
+        document.getElementById("preview").innerHTML =
             '<table>\n' +
             '<thead>\n<tr><th>' + head.filter(Boolean).join('</th><th>') + '</th></tr>\n</thead>\n' +
             '<tbody>\n<tr>' + body.map( (r) => '<td>' + r.filter(Boolean).join('</td><td>') + '</td>' ).join('</tr>\n<tr>') + '</tr>\n</tbody>\n' +
@@ -730,7 +730,7 @@ R12	12
         // highlight no-komi or handicap games
         document.querySelectorAll('#preview td').forEach((e) => {
             if (e.innerText.match(/^\([1-9]\d*\)[1-9]\d*[+-]|[wb][1-9]\d*$/)) {
-                e.classList.add('ha');
+                e.classList.add("ha");
             }
         });
 
@@ -738,7 +738,7 @@ R12	12
             var toggle = 0;
             var table = $('#preview table').rowMerge({ excludedColumns:roundcols });
             $('#toggle').click((e) => { (toggle=!toggle) ? table.unmerge() : table.merge(); });
-            console.log("row merging applied");
+            logappend("INFO: row merging applied");
         });
 
         haspreview = 1;
