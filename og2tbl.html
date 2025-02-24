@@ -156,9 +156,10 @@
 </fieldset>
 
 <fieldset>
-  <input id=doTiebreak type=checkbox disabled />
-  <label>attempt to calculate tiebreaks? (not yet implemented)</label>
+  <input id=doTiebreak type=checkbox />
+  <label>attempt to calculate tiebreaks?</label>
   <fieldset>
+    calculated but not yet applied - check messages<br />
     <input id=tiebreakColumns type=text size=32 placeholder="comma-separated list" />
   </fieldset>
 </fieldset>
@@ -551,7 +552,7 @@ R12	12
     });
 
     document.getElementById("tryPreview").addEventListener("click", () => {
-        haspreview = 0;
+        haspreview = false;
 
         let norm = new Map();
         let club_s2l = new Map();
@@ -571,6 +572,12 @@ R12	12
         let doMapClubs = document.getElementById("doMapClubs").checked;
         let doTiebreak = document.getElementById("doTiebreak").checked;
         let doElideColumns = document.getElementById("doElideColumns").checked;
+
+        let tiebreakColumnNames = [];
+        if (doTiebreak) {
+            tiebreakColumnNames = document.getElementById("tiebreakColumns").value.replace(/^\s+|\s+$/,"").split(/[,\s]+/);
+            logappend(`DEBUG: tiebreaks = ${tiebreakColumnNames}`);
+        }
 
         let elidedColumnNames = [];
         if (doElideColumns) {
@@ -623,7 +630,7 @@ R12	12
             if (nbody === 0) {
                 roundcols = getroundcols(cols);
                 nrounds = roundcols.length;
-                logappend(`DEBUG: roundcos = ${roundcols}`);
+                logappend(`DEBUG: roundcols = ${roundcols}`);
                 logappend(`DEBUG: nrounds = ${nrounds}`);
 
                 // override round column names
@@ -666,6 +673,7 @@ R12	12
                 logappend(`DEBUG: skipping blank line: ${lineindex}`);
                 return;
             }
+            // FIXME: map "Pl"/"POSN"/etc with/without "No" column 
             if (!foundhead) {
                 if (ish9) {
                     if ( /;\s*(Pl|POSN)/.test(row) ) {
@@ -710,7 +718,22 @@ R12	12
             parserow(row,lineindex);
         });
 
-        // remove elided columns
+        // natural sort on tiebreak columns - swap a,b so descending
+        if (doTiebreak) {
+            let tiecols = tiebreakColumnNames.map((e) => head2col.get(e));
+            logappend(`INFO: attempting to apply tiebreaks: ${tiecols}`);
+
+            let [t,n] = [ tiecols, tiecols.length ];
+
+            body = body.sort((a,b,  i,r) => {
+                    for(i=r=0; i<n && !r; i++)
+                        r = parseInt(b[t[i]],10) - parseInt(a[t[i]],10);
+                    if (!r) logappend(`DEBUG: tie: [${a}] == [${b}]`);
+                    return(r);
+                });
+        }
+
+        // unset elided columns
         if (doElideColumns) {
             let elidedColumns = elidedColumnNames.map((n) => head2col.get(norm.get(n) ?? n));
             logappend(`DEBUG: elidedcolumns: ${elidedColumns}`);
@@ -734,6 +757,11 @@ R12	12
             }
         });
 
+        // offsets may have changed if columns were elided
+        // also, row-merge appears to be 1-based rather than 0-based
+        roundcols = getroundcols(body[0].filter(Boolean)).map((c)=>c+1);
+        logappend(`DEBUG: adjusted roundcols = ${roundcols}`);
+
         $(function () {
             var toggle = 0;
             var table = $('#preview table').rowMerge({ excludedColumns:roundcols });
@@ -741,7 +769,7 @@ R12	12
             logappend("INFO: row merging applied");
         });
 
-        haspreview = 1;
+        haspreview = true;
     });
 
 </script>
