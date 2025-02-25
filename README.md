@@ -6,7 +6,7 @@ data to other formats.
 
 ## og2tbl.html
 
-An HTML+JavaScript webpage to convert an OpenGotha `.h9` or (GoDraw `.web`)
+An HTML+JavaScript webpage to convert an OpenGotha `.h9` (or GoDraw `.web`)
 file into an HTML table. Combines lastname/firstname into a single field.
 Optionally:
 
