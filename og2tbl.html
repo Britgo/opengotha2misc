@@ -177,6 +177,7 @@
     <dt>Notes:<dd>
     <ul>
       <li>"<code>SOSSOSOS</code>" and "<code>SDCSODOS</code>" are automatically detected as two separate headers</li>
+      <li>columns for game rounds should be automatically detected and numbered
       <li>remove unnamed columns by adding a name to the file/data and to the elide list</li>
       <li>markup for yellow row highlighting is not included with download / copy&amp;paste</li>
       <li>send bug reports / feature requests to <a href="https://github.com/britgo/opengotha2misc/issues">https://github.com/britgo/opengotha2misc/issues</a>
@@ -351,7 +352,7 @@ R12	12
 
         let tiebreakColumnNames = [];
         if (doTiebreak) {
-            tiebreakColumnNames = document.getElementById("tiebreakColumns").value.replace(/^\s+|\s+$/,"").split(/[,\s]+/);
+            tiebreakColumnNames = document.getElementById("tiebreakColumns").value.replace(/^\s+|\s+$/,"").split(/[,\s]+/).filter((s)=>s.length);
             logappend(`DEBUG: tiebreaks = ${tiebreakColumnNames}`);
         }
 
@@ -496,16 +497,19 @@ R12	12
         // natural sort on tiebreak columns - swap a,b so descending
         if (doTiebreak) {
             let tiecols = tiebreakColumnNames.map((e) => head2col.get(e));
-            logappend(`INFO: attempting to apply tiebreaks: ${tiecols}`);
-
             let [t,n] = [ tiecols, tiecols.length ];
+            logappend(`INFO: attempting to apply ${n} tiebreaks: ${t}`);
 
-            body = body.sort((a,b,  i,r) => {
-                    for(i=r=0; i<n && !r; i++)
-                        r = parseInt(b[t[i]],10) - parseInt(a[t[i]],10);
-                    if (!r) logappend(`DEBUG: tie: [${a}] == [${b}]`);
-                    return(r);
-                });
+            if (n==0) {
+                logappend("WARNING: no tiebreaks specified");
+            } else {
+                body = body.sort((a,b,  i,r) => {
+                        for(i=r=0; i<n && !r; i++)
+                            r = parseInt(b[t[i]],10) - parseInt(a[t[i]],10);
+                        if (!r) logappend(`DEBUG: tie: [${a}] == [${b}]`);
+                        return(r);
+                    });
+            }
         }
 
         // unset elided columns
