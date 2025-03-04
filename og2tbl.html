@@ -5,7 +5,10 @@
 <style>
  body { font-family: sans; font-size: 11pt; }
  h1 { font-size: 200%; }
+ label:hover { background: #ff7; padding: 1ex 1em 1ex 0; }
+ details { width: fit-content; padding-right: 1em; }
  summary { font-size: 133%; }
+ summary:hover { background: #ff7; padding-right: 1em; }
  #next { display: none; }
  #results { display: table; }
  #results table { border-collapse: collapse; }
@@ -37,9 +40,9 @@
 </details>
 <br />
 <p>refresh to apply checkbox changes - <em>table cell edits will be lost</em></p>
-<p><input id=webhead type=checkbox /> strip GoDraw original headers</p>
-<p><input id=mapclubs type=checkbox checked /> map club codes to full names</p>
-<p>load .h9/.web file: <input type=file id=file required /></p>
+<p><label><input id=webhead type=checkbox /> strip GoDraw original header row</label></p>
+<p><label><input id=mapclubs type=checkbox checked /> map club codes to full names</label></p>
+<p><label>load .h9/.web file: <input type=file id=file required /></label></p>
 <div id=next>
  <p>
   <button id=refresh>refresh</button>
