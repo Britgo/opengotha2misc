@@ -12,7 +12,10 @@
       padding-bottom: 2em;
     }
     h1 { font-size: 150%; }
-    h2 { font-size: 100%; font-weight: normal; }
+    h2 {
+        font-size: 100%;
+        font-weight: normal;
+    }
     #input, #clubmap, #headermap, #preview, #log {
       display: inline-block;
       max-width: 90vw;
@@ -47,8 +50,19 @@
     :checked + label {
       font-weight: bold;
     }
+    details {
+        border: 1px solid black;
+        border-radius: 0.5ex;
+        background: white;
+        padding: 1ex;
+        margin: 0.5ex;
+    }
     :checked + label + fieldset {
       opacity: 1;
+    }
+    #previewstate {
+        color: #d00;
+        display: none;
     }
     dd { margin-left: 0; }
   </style>
@@ -81,6 +95,7 @@
         grid-row: 2;
         margin-top: 1ex;
         border: 1px solid #a0a0a0;
+        color: #707070;
         background: #f7f7f7;
         text-align: center;
         &~ label {
@@ -91,7 +106,9 @@
       }
       > input[type="radio"]:checked + label {
         margin-top: 0;
+        border: 1px solid black;
         border-bottom-style: none;
+        color: black;
         background: white;
         outline-offset: -5px;
       }
@@ -105,7 +122,7 @@
         grid-column: 1 / -1;
         position: sticky;
         left: 0;
-        border: 1px solid #a0a0a0;
+        border: 1px solid black;
         border-top-style: none;
         background: white;
         padding: 1em;
@@ -125,7 +142,7 @@
         grid-column: 1 / -1;
         content: "";
         display: block;
-        border-top: 1px solid #a0a0a0;
+        border-top: 1px solid black;
         margin-top: -1px;
         z-index: -1;
       }
@@ -172,9 +189,8 @@
   </fieldset>
 </fieldset>
 
-<fieldset>
-  <dl>
-    <dt>Notes:<dd>
+<details open>
+    <summary>Notes</summary>
     <ul>
       <li>"<code>SOSSOSOS</code>" and "<code>SDCSODOS</code>" are automatically detected as two separate headers</li>
       <li>columns for game rounds should be automatically detected and numbered
@@ -182,8 +198,7 @@
       <li>markup for yellow row highlighting is not included with download / copy&amp;paste</li>
       <li>send bug reports / feature requests to <a href="https://github.com/britgo/opengotha2misc/issues">https://github.com/britgo/opengotha2misc/issues</a>
     </ul>
-  </dl>
-</fieldset>
+</details>
 
 <p></p>
 
@@ -213,7 +228,6 @@ Co	Country
 Ctry	Country
 NAME	Name
 NO	No
-Pl	No
 GRADE	Rank
 GR	Rank
 Rk	Rank
@@ -234,12 +248,12 @@ R12	12
   </div>
 
   <input type=radio name="tabgroup" id="tabgroup--preview" />
-  <label for="tabgroup--preview"><h2>rendered table</h2></label>
+  <label for="tabgroup--preview"><h2>rendered table<span id=previewstate><br />stale?</span></h2></label>
   <div class="tab-content">
     <p>
       <button id=tryPreview>convert / refresh</button>
       &nbsp;&nbsp;&nbsp;&nbsp;
-      <button id=toggle>toggle row merging</button>
+      <button id=toggleMerge>toggle row merging</button>
       &nbsp;&nbsp;&nbsp;&nbsp;
       <button id=tryCopy>copy to clipboard</button>
       <button id=trySave>download</button>
@@ -260,7 +274,20 @@ R12	12
 
 <script>
 
-    let haspreview = false;
+    /* ---------------------------------------- */
+
+    let haspreview = (state) =>
+        document.getElementById("previewstate").style.display =
+            state ? "none" : "inline";
+
+    [ "doMapClubs", "useCustomClubs", "clubmapFile",
+      "doTiebreak", "tiebreakColumns",
+      "doElideColumns", "elidedColumns",
+    ].forEach((e) => {
+        document.getElementById(e).addEventListener("change",(e)=>haspreview(false), false);
+    });
+
+    /* ---------------------------------------- */
 
     let emptylog = 1;
     let logappend = (s) => {
@@ -270,10 +297,19 @@ R12	12
         emptylog = 0;
     };
 
+    document.getElementById("doClear").addEventListener("click", () => {
+        document.getElementById("log").innerHTML = "errors and warnings will load here";
+        emptylog = 1;
+    });
+
+    /* ---------------------------------------- */
+
     // try to load a more recent clubmap file
     fetch("https://britgo.org/tourmansys/tournaments/sharedsys/club-table-UK")
         .then(r => r.text())
         .then(t => document.getElementById("clubmap").innerText = t);
+
+    /* ---------------------------------------- */
 
     let loaddiv = (id,tab,h) => {
         return (u) => {
@@ -288,7 +324,7 @@ R12	12
                 };
             r.readAsText(u.target.files[0]);
             document.getElementById(tab).checked = true;
-            haspreview = false;
+            haspreview(false);
         }
     };
     [
@@ -299,6 +335,8 @@ R12	12
         document.getElementById(file).addEventListener("change",loaddiv(div,tab,height), false);
     });
 
+    /* ---------------------------------------- */
+
     document.getElementById("tryCopy").addEventListener("click", () => {
         if (!haspreview) {
             alert("invalid render");
@@ -307,6 +345,8 @@ R12	12
         let s = document.getElementById("preview").innerHTML;
         navigator.clipboard.writeText(s);
     });
+
+    /* ---------------------------------------- */
 
     document.getElementById("trySave").addEventListener("click", () => {
         if (!haspreview) {
@@ -323,19 +363,17 @@ R12	12
         a.dispatchEvent(new MouseEvent("click"));
     });
 
-    document.getElementById("doClear").addEventListener("click", () => {
-        document.getElementById("log").innerHTML = "errors and warnings will load here";
-        emptylog = 1;
-    });
+    /* ---------------------------------------- */
 
     document.getElementById("tryPreview").addEventListener("click", () => {
-        haspreview = false;
+
+        haspreview(false);
 
         let norm = new Map();
         let club_s2l = new Map();
         let head2col = new Map();
         let namecol;
-        let head = [];
+        let head = ["_Place"]; // initial column for calculated tiebreaks
         let body = [];
         let nbody = 0;
         let nbodycols = 0;
@@ -345,6 +383,7 @@ R12	12
         let foundhead = false;
         let ish9 = false;
         let isweb = false;
+        let foundtiebreak = false;
 
         let doMapClubs = document.getElementById("doMapClubs").checked;
         let doTiebreak = document.getElementById("doTiebreak").checked;
@@ -384,13 +423,20 @@ R12	12
                 logappend(`DEBUG: nbodycols = ${nbodycols}`);
             }
 
+            // FIXME: h9 "No" column should be player number not "Posn"
             // fixup elided posn column
-            // cols.length should be nbodycols+1 because of subtraction above
+            // assume it is always the first column provided
+            // cols.length would be nbodycols+1 except for subtraction above
             if (ish9 && cols.length == nbodycols) {
-                cols.unshift( body[nbody-1][0] );
+                cols.unshift( parseInt(body[nbody-1][1],10) + (doTiebreak ? 1 : 0) );
+                foundtiebreak = true;
             } else if (isweb && /^\s*$/.test(cols[0])) {
-                cols[0] = body[nbody-1][0];
+                cols[0] = body[nbody-1][1];
+                foundtiebreak = true;
             }
+
+            // now prepend our internal tiebreak column
+            cols.unshift("?");
 
             // merge firstname+lastname
             if (ish9) {
@@ -411,10 +457,15 @@ R12	12
 
                 // override round column names
                 roundcols.forEach((c,i) => head[c] = i+1);
+                logappend(`DEBUG: tmp head (${head.length}): ${JSON.stringify([...head])}`);
                 for (let i = 0; i<nbodycols; ++i) {
-                    head[i] = head[i] ?? "???";
+                    if (cols[i] && !head[i]) {
+                        head[i] = `UNKNOWN${i}`;
+                        head2col.set(head[i], i);
+                    }
                 }
-                logappend(`DEBUG: new head (${head.length}): ${head}`);
+                logappend(`DEBUG: new head (${head.length}): ${JSON.stringify([...head])}`);
+
             }
 
             // tidy up no-komi games
@@ -426,7 +477,7 @@ R12	12
         };
 
         [
-            [ "clubmap",   club_s2l   ],
+            [ "clubmap",   club_s2l ],
             [ "headermap", norm ]
         ].forEach((e) => {
             let [id,a2b] = e;
@@ -445,48 +496,50 @@ R12	12
         });
 
         document.getElementById("input").innerText.split("\n").forEach((row,lineindex) => {
-            if ( /^;?\s*$/.test(row) ) {
+            if ( /^[\s;]*$/.test(row) ) {
                 logappend(`DEBUG: skipping blank line: ${lineindex}`);
                 return;
             }
-            // FIXME: map "Pl"/"POSN"/etc with/without "No" column 
             if (!foundhead) {
-                if (ish9) {
-                    if ( /;\s*(Pl|POSN)/.test(row) ) {
+                let r;
+                if (ish9 || isweb) {
+                    if ( ish9 && /;\s*(Pl|POSN)/.test(row) ) {
                         logappend(`INFO: found h9 header: ${lineindex}`);
-                        head = splitcols(row.replace(/^;\s*/,"")
-                             .replace(/(SOS|SDC)(SODOS|SOSOS)/,"$1 $2"))
-                             .map( (h) => norm.get(h) ?? h )
-                             ;
-                        head.forEach((v,i) => head2col.set(v, i));
+                        r = row.replace(/^;\s*/, "");
                         foundhead = true;
                     }
-                } else if (isweb) {
-                    if ( /^POSN\tNO\t/.test(row) ) {
+                    else if (isweb && /^POSN\tNO\t/.test(row) ) {
                         logappend(`INFO: found web header: ${lineindex}`);
-                        head = splitcols(row.replace(/SOSSOSOS/,"SOS SOSOS"))
-                             .map( (h) => norm.get(h) ?? h );
-                        head.forEach((v,i) => head2col.set(v, i));
+                        r = row;
                         foundhead = true;
                     }
-                } else if ( row.startsWith(";") ) {
+                } else if ( /^\s*;.*?\S+\[.*?\]/.test(row) ) {
                     logappend("INFO: looks like .h9");
                     ish9 = true;
                 } else if ( /^WEB\tRANK LIST\t/.test(row) ) {
                     logappend("INFO: looks like .web");
                     isweb = true;
                 } else {
-                    logappend("WARNING: cannot detect type");
+                    logappend("ERROR: cannot detect input type");
                 }
 
                 if (foundhead) {
+                    head.push(
+                        ... splitcols( r.replace(/(SOS|SDC)(SODOS|SOSOS)/, "$1 $2") )
+                            .map( (h) => norm.get(h) ?? h )
+                    );
+                    head.forEach((v,i) => head2col.set(v, i));
+                    console.table(head);
+
                     // renaming POSN column depends on whether No column is present
-                    let posncol = head2col.get("POSN");
+                    let posncol = head2col.get("POSN") ?? head2col.get("Pl");
                     if (posncol != null) {
                         head[posncol] = head2col.get("No") ? "Posn" : "No";
                     }
+
+                    logappend(`DEBUG: orig head (${head.length}): ${JSON.stringify([...head])}`);
                     namecol = head2col.get("Name");
-                    logappend(`DEBUG: orig head (${head.length}): ${head}`);
+                    logappend(`DEBUG: namecol = ${namecol}`);
                 }
 
                 return;
@@ -498,18 +551,45 @@ R12	12
         if (doTiebreak) {
             let tiecols = tiebreakColumnNames.map((e) => head2col.get(e));
             let [t,n] = [ tiecols, tiecols.length ];
-            logappend(`INFO: attempting to apply ${n} tiebreaks: ${t}`);
+            logappend(`INFO: attempting to apply ${n} tiebreaks: ${JSON.stringify([...t])}`);
 
             if (n==0) {
                 logappend("WARNING: no tiebreaks specified");
             } else {
+                let nocol = head2col.get("No");
+                console.table(head2col);
+                logappend(`DEBUG: nocol = ${nocol}`);
+
+                let mappush = (m,k,v) => m.has(k) ? m.get(k).push(v) : m.set(k,[v]);
+                let tied = new Map();
+
                 body = body.sort((a,b,  i,r) => {
                         for(i=r=0; i<n && !r; i++)
                             r = parseInt(b[t[i]],10) - parseInt(a[t[i]],10);
-                        if (!r) logappend(`DEBUG: tie: [${a}] == [${b}]`);
+                        if (!r) {
+                            mappush( tied, a[nocol], b[nocol] );
+                            mappush( tied, b[nocol], a[nocol] );
+                            logappend(`DEBUG: tie: [${a}] == [${b}]`);
+                        }
                         return(r);
                     });
+                console.table(tied);
+
+                let player2row = new Map();
+                body.forEach((r,i) => player2row.set(r[nocol],i));
+
+                body.forEach((r,i) => {
+                    if (r[0]==="?") {
+                        r[0] = i+1;
+                        if (tied.has( r[nocol] )) {
+                            logappend(`DEBUG: tie assign: (${r[nocol]},${tied.get(r[nocol])})->${i+1}`);
+                            tied.get(r[nocol]).forEach((p) => body[player2row.get(p)][0] = i+1);
+                        }
+                    }
+                });
             }
+        } else {
+            elidedColumnNames.push("_Place");
         }
 
         // unset elided columns
@@ -536,20 +616,25 @@ R12	12
             }
         });
 
-        // offsets may have changed if columns were elided
-        // also, row-merge appears to be 1-based rather than 0-based
-        roundcols = getroundcols(body[0].filter(Boolean)).map((c)=>c+1);
-        logappend(`DEBUG: adjusted roundcols = ${roundcols}`);
+        if ( !head2col.has("No") && foundtiebreak==true && !doTiebreak ) {
+            // FIXME
+            logappend("WARN: Posn column needs to be prepended");
+        }
+
+        // only merge Place/Posn columns
+        let mergeexclude = [...Array(nbodycols).keys()].filter((i) => i>1);
 
         $(function () {
-            var toggle = 0;
-            var table = $('#preview table').rowMerge({ excludedColumns:roundcols });
-            $('#toggle').click((e) => { (toggle=!toggle) ? table.unmerge() : table.merge(); });
+            var merge = 0;
+            var table = $('#preview table').rowMerge({ zeroIndexed: true, excludedColumns:mergeexclude });
+            $('#toggleMerge').click((e) => { (merge=!merge) ? table.unmerge() : table.merge(); });
             logappend("INFO: row merging applied");
         });
 
-        haspreview = true;
+        haspreview(true);
     });
+
+    /* ---------------------------------------- */
 
 </script>
 
