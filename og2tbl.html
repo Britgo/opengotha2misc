@@ -119,12 +119,13 @@ function convert (s) {
     rows.forEach(row => 
         row.forEach((cell,idx) => {
             types[idx] ??= [0,0,0,0,0,0,0];
-            if (/^0$/                                 .test(cell)) types[idx][0]++; // zero
-            if (/^(\(\d+\))?\d+[=+-][\/!]?[BbWw]?\d*$/.test(cell)) types[idx][1]++; // result
-            if (/^[A-Z][A-Z]$/                        .test(cell)) types[idx][2]++; // country
-            if (/^-?\d+$/                             .test(cell)) types[idx][3]++; // n
-            if (/^\d+[DdKkPp]$/                       .test(cell)) types[idx][4]++; // rank
-            if (/^[^\d\/!=+-]+$|[A-Za-z_]/            .test(cell)) types[idx][5]++; // word
+            if (/^0$/                       .test(cell)) types[idx][0]++; // zero
+            if (/^\(\d+\)\d+[dvf=+-]$/      .test(cell)) types[idx][1]++; // result (web)
+            if (/^\d+[=+-][\/!]?[BbWw]?\d*$/.test(cell)) types[idx][1]++; // result (h9)
+            if (/^[A-Z][A-Z]$/              .test(cell)) types[idx][2]++; // country
+            if (/^-?\d+$/                   .test(cell)) types[idx][3]++; // n
+            if (/^\d+[DdKkPp]$/             .test(cell)) types[idx][4]++; // rank
+            if (/^[^\d\/!=+-]+$|[A-Za-z_]/  .test(cell)) types[idx][5]++; // word
         })
     ) 
     let numRows = rows.length;
