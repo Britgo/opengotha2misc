@@ -1,0 +1,218 @@
+<!doctype html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style>
+ body { font-family: sans; font-size: 11pt; }
+ h1 { font-size: 200%; }
+ summary { font-size: 133%; }
+ #next { display: none; }
+ #results { display: table; }
+ #results table { border-collapse: collapse; }
+ #results table th,
+ #results table td { border-color: black; padding: .2em 1ex; }
+ #results p {
+  border: 1px solid black;
+  padding: 1em;
+  margin-right: 1em;
+ }
+ .ha { color: red; }
+</style>
+</head>
+<body>
+<h1>OpenGotha/GoDraw results formatter</h1>
+<details>
+<summary><b>Notes</b></summary>
+<ul>
+ <li>From-scratch rewrite, March 2025.
+ <li>Row-merging and tiebreak calculation are not yet re-implemented.
+ <li>Header names are assigned by probabilistic detection of column types.<br />
+     To check accuracy, for .web files the original header is retained.
+ <li>All-zero columns are elided.
+ <li>POSN column is added/removed based on presence/absence of omitted POSN/NO rows.
+ <li>Result columns are moved to RHS; other reordering is not (yet?) supported.
+ <li>Club mapping is country-specific (codes are not globally unique). So far: UK, FR.
+ <li>Send comments, bug-reports and feedback to the <a href="https://github.com/britgo/opengotha2misc">GitHub issue tracker</a>
+</ul>
+</details>
+<br />
+<p><input id=mapclubs type=checkbox checked /> map club codes to full names
+ (refresh to apply change - table cell edits will be lost)
+</p>
+<p>.h9/.web file to convert: <input type=file id=file required /></p>
+<div id=next>
+ <p>
+  <button id=refresh>refresh</button>
+  <button id=copy>copy to clipboard</button>
+  <button id=download>download</button>
+ </p>
+ <p>click on table cells to edit</p>
+</div>
+<div id="results" contenteditable=true autocomplete=off autocorrect=off autocapitalize=off spellcheck=false>
+ <p>table will display here</p>
+</div>
+
+<script>
+
+let clubmap = new Map();
+fetch("club-table")
+    .then(r => r.text())
+    .then(t => {
+        t.split("\n").map(s => s.trim()).forEach(r => {
+            let kv = r.match(/^([^#]\S*)\s+(\S+)\s+(\S.*)$/);
+            if (kv) {
+                if (!clubmap.has([kv[1],kv[2]])) {
+                    clubmap.set(`${kv[1]}:${kv[2]}`, kv[3]);
+                    clubmap.set(`${kv[1]}:${kv[3]}`, kv[3]);
+                } else {
+                    console.log(`Error: duplicate club mapping (ignored): ${[kv[1],kv[2]]} -> ${kv[3]}`);
+                }
+            } else if (/^[^#]/.test(r)) {
+                console.log(`Error: bad club mapping: (${r})`);
+            }
+         });
+     });
+
+let raw;
+function convert (s) {
+
+    let doMapClubs = document.getElementById("mapclubs").checked;
+
+    let isWeb = /^\s*WEB\s+RANK\s+LIST\s+/.test(s);
+    let has2n = /\n\s*\d+\s+\d+\s+/.test(s);
+
+    let rows =
+        (isWeb
+            ? s.replace(/^.*?\n\s*(POSN\s+)/s, "$1")
+            : s.replace(/\s*\n\s*/g, "\n")
+        )
+        .split(/\s*\n/)
+        .filter(s => !/^\s*(;|\s*$)/.test(s))
+        .map(s => s.split(isWeb ? /\t/ : /\s+/));
+
+    let rowCols = rows.map(r => r.length);
+    let colMax = Math.max(...rowCols);
+    let hasShort = rowCols.includes(colMax-1);
+
+    rows.forEach((r,i,t) => {
+        if (r.length===colMax-1) {
+            if (has2n) r.unshift( t[i-1][0] );
+            else       r.unshift( t[i-1][0], `${+t[i-1][1]+1}`);
+        } else {
+            if (has2n && !hasShort)      r.shift();
+            else if (!has2n && hasShort) r.unshift( t[i][0] )
+        }
+        if (!isWeb) {
+            let nameCol = hasShort ? 2 : 1;
+            r.splice(nameCol, 2, `${r[nameCol+1]} ${r[nameCol]}`);
+        }
+    });
+
+    // detect column types
+    types = [];
+    rows.forEach(row => 
+        row.forEach((cell,idx) => {
+            types[idx] ??= [0,0,0,0,0,0,0];
+            if (/^0$/                                 .test(cell)) types[idx][0]++; // zero
+            if (/^(\(\d+\))?\d+[=+-][\/!]?[BbWw]?\d*$/.test(cell)) types[idx][1]++; // result
+            if (/^[A-Z][A-Z]$/                        .test(cell)) types[idx][2]++; // country
+            if (/^-?\d+$/                             .test(cell)) types[idx][3]++; // n
+            if (/^\d+[DdKkPp]$/                       .test(cell)) types[idx][4]++; // rank
+            if (/^[^\d\/!=+-]+$|[A-Za-z_]/            .test(cell)) types[idx][5]++; // word
+        })
+    ) 
+    let numRows = rows.length;
+    let zero    = types.flatMap((c,i) => c[0] >= numRows-1 ? i : []);
+    let result  = types.flatMap((c,i) => c[1] >  numRows/2 ? i : []);
+    let country = types.flatMap((c,i) => c[2] >  numRows/2 ? i : []);
+    let n       = types.flatMap((c,i) => c[3] >  numRows/2 ? i : []).filter(n => !zero.includes(n) );
+    let rank    = types.flatMap((c,i) => c[4] >  numRows-3 ? i : []);
+    let word    = types.flatMap((c,i) => c[5] == numRows   ? i : []).filter(n => !( rank.includes(n) || country.includes(n) || result.includes(n) ));
+
+    // guess headers from detected types - later overrides earlier
+    let head = [];
+    let rankCol    = rank[0];    head[ rankCol    ] = "Rank";
+    let clubCol    = word[1];    head[ clubCol    ] = "Club";
+    let countryCol = country[0]; head[ countryCol ] = "Country";
+    let nameCol    = word[0];    head[ nameCol    ] = "Name";
+    n.forEach(n => head[n] = "");
+    result.forEach((r,i) => head[r] = `${i+1}`);
+
+    rows.forEach((row,y) =>
+        row.forEach((c,x,r) => {
+            if (result.includes(x)) {
+                let nkh = /\([1-9]|[BbWw][1-9]/.test(c);
+
+                // simplify result string
+                let v = c.replaceAll(/^\(\d+\)|[!\/]?[BbWw]\d*$/g, "");
+
+                // tag nokomi/handicap
+                r[x] = nkh ? [v,"ha"] : v;
+            }
+            else if (x===clubCol && doMapClubs) {
+                // expand clubnames
+                r[x] = clubmap.get(`${r[countryCol]}:${c}`) ?? `<${c}>`;
+            }
+        })
+    );
+
+    rows.unshift(head);
+
+    // move result columns to rhs 
+    let reorder = [...head.flatMap((c,i) => result.includes(i) ? [] : i), ...result];
+    rows.forEach(row => row.splice(0,Infinity, ...(reorder.map(i=>row[i]))));
+
+    // emit html
+    ((node,rows,hasHead) => {
+        let table = document.createElement('table');
+        table.border = 1;
+        table.setAttribute("data-go-results", "");
+        rows.forEach((row,y) => {
+            let tr = document.createElement('tr');
+            row.forEach((cell,x) => {
+                let e = document.createElement( !hasHead||y>0 ? 'td' : 'th' )
+                if (Array.isArray(cell)) {
+                    e.textContent = cell[0];
+                    e.classList.add(cell[1]);
+                } else {
+                    e.textContent = cell;
+                }
+                tr.appendChild(e);
+            });
+            table.appendChild(tr);
+        });
+        node.replaceChildren(table);
+    })(document.getElementById("results"), rows, true); 
+
+    document.getElementById("next").style.display = "block";
+}
+
+document.getElementById("file").addEventListener("change", (u) => {
+    let r = new FileReader();
+    r.onload = (f) => {
+            convert(raw = f.target.result);
+        };
+    r.readAsText(u.target.files[0]);
+}, false);
+
+document.getElementById("refresh").addEventListener("click", () => {
+    convert(raw);
+});
+
+document.getElementById("copy").addEventListener("click", () => {
+    navigator.clipboard.writeText( document.getElementById("results").innerHTML.replaceAll(/(<\/tr>)/g, "$1\n") );
+});
+
+document.getElementById("download").addEventListener("click", () => {
+    let f = document.getElementById("file").value.replace(/^(?:.*[\\/])?(.+?)([.][^.]+)?$/, "$1.html");
+    let s = document.getElementById("results").innerHTML.replaceAll(/(<\/tr>)/g, "$1\n");
+    let b = new Blob(['<html>\n\n',s,'\n\n</html>\n'], {type:"application/octet-stream"});
+    let a = document.createElement("a");
+    a.download = f ?? "unnamed.html";
+    a.href = URL.createObjectURL(b);
+    a.dispatchEvent(new MouseEvent("click"));
+});
+
+</script>
+</body>
+</html>
