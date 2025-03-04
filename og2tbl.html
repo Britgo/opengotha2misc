@@ -22,12 +22,12 @@
 <body>
 <h1>OpenGotha/GoDraw results formatter</h1>
 <details>
-<summary><b>Notes</b></summary>
+<summary><b>Notes</b> <span class="details-instructions">(click to reveal/hide)</span></summary>
 <ul>
  <li>From-scratch rewrite, March 2025.
  <li>Row-merging and tiebreak calculation are not yet re-implemented.
  <li>Header names are assigned by probabilistic detection of column types.<br />
-     To check accuracy, for .web files the original header is retained.
+     To check accuracy, the original headers of .web files can be retained.
  <li>All-zero columns are elided.
  <li>POSN column is added/removed based on presence/absence of omitted POSN/NO rows.
  <li>Result columns are moved to RHS; other reordering is not (yet?) supported.
@@ -36,10 +36,10 @@
 </ul>
 </details>
 <br />
-<p><input id=mapclubs type=checkbox checked /> map club codes to full names
- (refresh to apply change - table cell edits will be lost)
-</p>
-<p>.h9/.web file to convert: <input type=file id=file required /></p>
+<p>refresh to apply checkbox changes - <em>table cell edits will be lost</em></p>
+<p><input id=webhead type=checkbox checked /> strip GoDraw original headers</p>
+<p><input id=mapclubs type=checkbox checked /> map club codes to full names</p>
+<p>load .h9/.web file: <input type=file id=file required /></p>
 <div id=next>
  <p>
   <button id=refresh>refresh</button>
@@ -77,13 +77,16 @@ let raw;
 function convert (s) {
 
     let doMapClubs = document.getElementById("mapclubs").checked;
+    let doStripWebHead = document.getElementById("webhead").checked;
 
     let isWeb = /^\s*WEB\s+RANK\s+LIST\s+/.test(s);
     let has2n = /\n\s*\d+\s+\d+\s+/.test(s);
 
     let rows =
         (isWeb
-            ? s.replace(/^.*?\n\s*(POSN\s+)/s, "$1")
+            ? doStripWebHead
+                ? s.replace(/^.*?\n\s*POSN\s+.*?\n/s, "")
+                : s.replace(/^.*?\n\s*(POSN\s+)/s, "$1")
             : s.replace(/\s*\n\s*/g, "\n")
         )
         .split(/\s*\n/)
