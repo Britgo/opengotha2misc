@@ -84,6 +84,7 @@ function convert (s) {
 
     let isWeb = /^\s*WEB\s+RANK\s+LIST\s+/.test(s);
     let has2n = /\n\s*\d+\s+\d+\s+/.test(s);
+    let has1n = /\n\s*\d+\s+[^\d]+/.test(s);
 
     let rows =
         (isWeb
@@ -96,14 +97,24 @@ function convert (s) {
         .filter(s => !/^\s*(;|\s*$)/.test(s))
         .map(s => s.split(isWeb ? /\t/ : /\s+/));
 
+    /*
+     * assume row always starts with place and/or pin fields
+     * if only one appears, place value == pin value
+     * GoDraw appears to denote ties by eliding a value
+     * check for such empty cells and fill them in
+     * if there are no ties, place==pin so delete place column
+     */
+
     let rowCols = rows.map(r => r.length);
     let colMax = Math.max(...rowCols);
-    let hasShort = rowCols.includes(colMax-1);
+    let isShort = rowCols.map((r,i) => r==colMax-1 || !rows[i][0].trim());
+    let hasShort = isShort.includes(true);
 
     rows.forEach((r,i,t) => {
-        if (r.length===colMax-1) {
-            if (has2n) r.unshift( t[i-1][0] );
-            else       r.unshift( t[i-1][0], `${+t[i-1][1]+1}`);
+        if (isShort[i]) {
+            if (isWeb)      r.splice(0, 1, t[i-1][0]);
+            else if (has2n) r.unshift( t[i-1][0] );
+            else            r.unshift( t[i-1][0], `${+t[i-1][1]+1}`);
         } else {
             if (has2n && !hasShort)      r.shift();
             else if (!has2n && hasShort) r.unshift( t[i][0] )
@@ -138,11 +149,19 @@ function convert (s) {
 
     // guess headers from detected types - later overrides earlier
     let head = [];
+    n.forEach(n => head[n] = "");
+    let posnCol;
+    let pinCol;
+    if (hasShort) {
+        posnCol    = n[0];       head[ posnCol    ] = "Place";
+        pinCol     = n[1];       head[ pinCol     ] = "#";
+    } else {
+        pinCol     = n[0];       head[ pinCol     ] = "#";
+    }
     let rankCol    = rank[0];    head[ rankCol    ] = "Rank";
     let clubCol    = word[1];    head[ clubCol    ] = "Club";
     let countryCol = country[0]; head[ countryCol ] = "Country";
     let nameCol    = word[0];    head[ nameCol    ] = "Name";
-    n.forEach(n => head[n] = "");
     result.forEach((r,i) => head[r] = `${i+1}`);
 
     rows.forEach((row,y) =>
